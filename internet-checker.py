@@ -10,6 +10,7 @@ import matplotlib.dates as mdates
 from secrets import TELEGRAM_BOT_TOKEN, CHAT_ID, INTERNET_COST, INTERNET_SPEED
 import asyncio
 import seaborn as sns
+from statistics import median, mode, StatisticsError
 
 
 TS = "%Y-%m-%d %H:%M:%S"
@@ -17,6 +18,8 @@ TS = "%Y-%m-%d %H:%M:%S"
 # Define the report and data directory paths
 REPORT_DIRECTORY = "reports"
 DATA_DIRECTORY = "data"
+
+bot = Bot(token=TELEGRAM_BOT_TOKEN)
 
 
 # Function to ensure the directory exists
@@ -28,6 +31,15 @@ def ensure_directory_exists(directory):
 # Ensure the report and data directories exist
 ensure_directory_exists(REPORT_DIRECTORY)
 ensure_directory_exists(DATA_DIRECTORY)
+
+
+def calculate_stats(data):
+    median_value = median(data)
+    try:
+        mode_value = mode(data)
+    except StatisticsError:
+        mode_value = data[0]
+    return median_value, mode_value
 
 
 def format_minutes_as_time(minutes):
@@ -46,7 +58,9 @@ def format_minutes_as_time(minutes):
         if hours > 0:
             time_str += f", {hours} hour{'s' if hours > 1 else ''}"
         if remaining_minutes > 0:
-            time_str += f", {remaining_minutes} minute{'s' if remaining_minutes > 1 else ''}"
+            time_str += (
+                f", {remaining_minutes} minute{'s' if remaining_minutes > 1 else ''}"
+            )
         return time_str
 
 
@@ -75,7 +89,9 @@ def create_line_graph(x, y, title, xlabel, ylabel, filename, report_type):
     sns.set(style="whitegrid")  # Set seaborn style for better styling
 
     fig, ax = plt.subplots(figsize=(8, 4))
-    ax.plot(x, y, marker="o", markersize=6, linestyle="-", linewidth=2, color="#007acc")  # Adjust line style and color
+    ax.plot(
+        x, y, marker="o", markersize=6, linestyle="-", linewidth=2, color="#007acc"
+    )  # Adjust line style and color
     ax.set_title(title, fontsize=16)
     ax.set_xlabel(xlabel, fontsize=12)
     ax.set_ylabel(ylabel, fontsize=12)
@@ -91,16 +107,18 @@ def create_line_graph(x, y, title, xlabel, ylabel, filename, report_type):
     plt.close()
     return filepath
 
+
 # Function to send a message with an optional image to Telegram
-async def send_telegram_message(message, image_path=None):
+async def send_telegram_photo(image_path=None):
     image_path = os.path.join(REPORT_DIRECTORY, image_path)
-    bot = Bot(token=TELEGRAM_BOT_TOKEN)
-
-    await bot.send_message(chat_id=CHAT_ID, text=message)
-
     if image_path:
         with open(image_path, "rb") as img:
             await bot.send_photo(chat_id=CHAT_ID, photo=img)
+
+
+# Function to send a message with an optional image to Telegram
+async def send_telegram_message(message):
+    await bot.send_message(chat_id=CHAT_ID, text=message)
 
 
 # Function to send daily report
@@ -127,10 +145,15 @@ async def send_daily_report(speed_data, connectivity_data):
         today_speed_data
     )
 
+    # Calculate median and mode of download and upload speeds
+    download_speeds = [entry["download_speed"] for entry in today_speed_data]
+    upload_speeds = [entry["upload_speed"] for entry in today_speed_data]
+    median_download, mode_download = calculate_stats(download_speeds)
+    median_upload, mode_upload = calculate_stats(upload_speeds)
+
     # Create and save a minimalistic line graph for hourly speed on the day
     timestamps = [
-        datetime.datetime.strptime(entry["time"], TS)
-        for entry in today_speed_data
+        datetime.datetime.strptime(entry["time"], TS) for entry in today_speed_data
     ]
     download_speeds = [entry["download_speed"] for entry in today_speed_data]
     upload_speeds = [entry["upload_speed"] for entry in today_speed_data]
@@ -140,8 +163,8 @@ async def send_daily_report(speed_data, connectivity_data):
         "Daily Speed Test Results",
         "Hour",
         "Download Speed (Mbps)",
-        "daily_speed_graph.png",
-        "daily"
+        "daily_download_speed_graph.png",
+        "daily",
     )
     create_line_graph(
         timestamps,
@@ -150,7 +173,7 @@ async def send_daily_report(speed_data, connectivity_data):
         "Hour",
         "Upload Speed (Mbps)",
         "daily_upload_speed_graph.png",
-        "daily"
+        "daily",
     )
 
     # Send the daily report with the minimalistic graphs
@@ -159,9 +182,14 @@ async def send_daily_report(speed_data, connectivity_data):
     message += f"Total Downtime: {total_downtime} hours\n"
     message += f"Average Download Speed: {avg_download_speed:.2f} Mbps\n"
     message += f"Average Upload Speed: {avg_upload_speed:.2f} Mbps"
+    message += f"Median Download Speed: {median_download:.2f} Mbps\n"
+    message += f"Mode Download Speed: {mode_download:.2f} Mbps\n"
+    message += f"Median Upload Speed: {median_upload:.2f} Mbps\n"
+    message += f"Mode Upload Speed: {mode_upload:.2f} Mbps\n"
 
-    await send_telegram_message(message, image_path="daily_speed_graph.png")
-    await send_telegram_message(message, image_path="daily_upload_speed_graph.png")
+    await send_telegram_message(message)
+    await send_telegram_photo("daily_download_speed_graph.png")
+    await send_telegram_photo("daily_upload_speed_graph.png")
 
 
 # Function to send weekly report
@@ -194,11 +222,14 @@ async def send_weekly_report(speed_data, connectivity_data):
     avg_upload_speed = sum([entry["upload_speed"] for entry in week_speed_data]) / len(
         week_speed_data
     )
+    download_speeds = [entry["download_speed"] for entry in week_speed_data]
+    upload_speeds = [entry["upload_speed"] for entry in week_speed_data]
+    median_download, mode_download = calculate_stats(download_speeds)
+    median_upload, mode_upload = calculate_stats(upload_speeds)
 
     # Create and save a minimalistic line graph for the week's speed test results
     timestamps = [
-        datetime.datetime.strptime(entry["time"], TS)
-        for entry in week_speed_data
+        datetime.datetime.strptime(entry["time"], TS) for entry in week_speed_data
     ]
     download_speeds = [entry["download_speed"] for entry in week_speed_data]
     upload_speeds = [entry["upload_speed"] for entry in week_speed_data]
@@ -208,8 +239,8 @@ async def send_weekly_report(speed_data, connectivity_data):
         "Weekly Speed Test Results",
         "Date",
         "Download Speed (Mbps)",
-        "weekly_speed_graph.png",
-        "weekly"
+        "weekly_download_speed_graph.png",
+        "weekly",
     )
     create_line_graph(
         timestamps,
@@ -218,26 +249,29 @@ async def send_weekly_report(speed_data, connectivity_data):
         "Date",
         "Upload Speed (Mbps)",
         "weekly_upload_speed_graph.png",
-        "weekly"
+        "weekly",
     )
 
     # Send the weekly report with the minimalistic graphs
-    message = f"Weekly Report - {start_of_week.strftime('%Y-%m-%d')} to {end_of_week.strftime('%Y-%m-%d')}\n"
+    message = "-" * 30
+    message += f"\nWeekly Report - {start_of_week.strftime('%Y-%m-%d')} to {end_of_week.strftime('%Y-%m-%d')}\n"
     message += f"Total Downtime (Days): {total_downtime_days}\n"
     message += f"Average Download Speed: {avg_download_speed:.2f} Mbps\n"
     message += f"Average Upload Speed: {avg_upload_speed:.2f} Mbps"
+    message += f"Median Download Speed: {median_download:.2f} Mbps\n"
+    message += f"Mode Download Speed: {mode_download:.2f} Mbps\n"
+    message += f"Median Upload Speed: {median_upload:.2f} Mbps\n"
+    message += f"Mode Upload Speed: {mode_upload:.2f} Mbps\n"
 
-    await send_telegram_message(message, image_path="weekly_speed_graph.png")
-    await send_telegram_message(message, image_path="weekly_upload_speed_graph.png")
+    await send_telegram_message(message)
+    await send_telegram_photo("weekly_download_speed_graph.png")
+    await send_telegram_photo("weekly_upload_speed_graph.png")
 
 
 # Function to generate and send the monthly report
 async def send_monthly_report(speed_data, connectivity_data):
     # Calculate total downtime in terms of days and hours for the month
-    month_connectivity_data = [
-        entry["status"]
-        for entry in connectivity_data
-    ]
+    month_connectivity_data = [entry["status"] for entry in connectivity_data]
     total_downtime_days = format_minutes_as_time(month_connectivity_data.count(0))
 
     # Calculate average monthly speed
@@ -249,20 +283,20 @@ async def send_monthly_report(speed_data, connectivity_data):
     )
 
     # Create and save a minimalistic line graph for the month's speed test results
-    timestamps = [
-        datetime.datetime.strptime(entry["time"], TS)
-        for entry in speed_data
-    ]
+    timestamps = [datetime.datetime.strptime(entry["time"], TS) for entry in speed_data]
     download_speeds = [entry["download_speed"] for entry in speed_data]
     upload_speeds = [entry["upload_speed"] for entry in speed_data]
+    median_download, mode_download = calculate_stats(download_speeds)
+    median_upload, mode_upload = calculate_stats(upload_speeds)
+
     create_line_graph(
         timestamps,
         download_speeds,
         "Monthly Speed Test Results",
         "Date",
         "Download Speed (Mbps)",
-        "monthly_speed_graph.png",
-        "monthly"
+        "monthly_download_speed_graph.png",
+        "monthly",
     )
     create_line_graph(
         timestamps,
@@ -271,20 +305,24 @@ async def send_monthly_report(speed_data, connectivity_data):
         "Date",
         "Upload Speed (Mbps)",
         "monthly_upload_speed_graph.png",
-        "monthly"
+        "monthly",
     )
 
     # Send the monthly report with the minimalistic graphs
-    message = f"Monthly Report - {datetime.datetime.now().strftime('%B %Y')}\n"
+    message = "*" * 30
+    message += f"\nMonthly Report - {datetime.datetime.now().strftime('%B %Y')}\n"
     message += f"Total Downtime (Days): {total_downtime_days}\n"
     message += f"Average Download Speed: {avg_download_speed:.2f} Mbps\n"
     message += f"Average Upload Speed: {avg_upload_speed:.2f} Mbps"
+    message += f"Median Download Speed: {median_download:.2f} Mbps\n"
+    message += f"Mode Download Speed: {mode_download:.2f} Mbps\n"
+    message += f"Median Upload Speed: {median_upload:.2f} Mbps\n"
+    message += f"Mode Upload Speed: {mode_upload:.2f} Mbps\n"
 
-    await send_telegram_message(message, image_path="monthly_speed_graph.png")
-    await send_telegram_message(
-        message, image_path="monthly_upload_speed_graph.png"
-    )
-
+    await send_telegram_message(message)
+    await send_telegram_photo("monthly_download_speed_graph")
+    await send_telegram_photo("monthly_upload_speed_graph.png")
+    await send_telegram_message("*" * 30)
 
 
 # Main function
@@ -356,5 +394,5 @@ async def main():
         time.sleep(60)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     asyncio.run(main())
