@@ -7,15 +7,8 @@ import json
 from telegram import Bot
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+from secrets import TELEGRAM_BOT_TOKEN, CHAT_ID, INTERNET_COST, INTERNET_SPEED
 
-# Telegram bot API token
-TELEGRAM_BOT_TOKEN = 'YOUR_BOT_TOKEN'
-# Your chat ID, you can find this out by messaging the bot and checking the updates
-CHAT_ID = 'YOUR_CHAT_ID'
-# Cost of your internet plan per month (Rupees)
-INTERNET_COST = 1050
-# Your internet plan speed (Mbps)
-INTERNET_SPEED = 100
 # Define the report and data directory paths
 REPORT_DIRECTORY = 'reports'
 DATA_DIRECTORY = 'data'
