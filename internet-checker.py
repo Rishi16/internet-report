@@ -154,22 +154,18 @@ def send_monthly_report(speed_data, connectivity_data):
 
 # Main function
 if __name__ == "__main__":
-    current_month = datetime.datetime.now().strftime('%Y-%m')
-    data_directory = 'data'
-    connectivity_file = os.path.join(data_directory, f'connectivity_{current_month}.json')
-    speedtest_file = f'speedtest_{current_month}.json'
-
     while True:
-        # Check if it's a new month and create new data files
-        new_month = datetime.datetime.now().strftime('%Y-%m')
-        if new_month != current_month:
-            connectivity_file = f'connectivity_{new_month}.json'
-            speedtest_file = f'speedtest_{new_month}.json'
-            current_month = new_month
+        month = datetime.datetime.now().strftime('%Y-%m')
+        connectivity_file = os.path.join(DATA_DIRECTORY, f'connectivity_{month}.json')
+        speedtest_file = os.path.join(DATA_DIRECTORY, f'speedtest_{month}.json')
 
         if not os.path.exists(connectivity_file):
             with open(connectivity_file, 'w') as f:
                 json.dump([], f)
+        if not os.path.exists(speedtest_file):
+            with open(speedtest_file, 'w') as f:
+                json.dump([], f)
+
         # Check connectivity every minute
         with open(connectivity_file, 'r') as f:
             connectivity_data = json.load(f)
@@ -181,7 +177,7 @@ if __name__ == "__main__":
             json.dump(connectivity_data, f)
 
         # Check if it's the top of the hour (hourly speed check)
-        if datetime.datetime.now().minute == 0:
+        if datetime.datetime.now().minute == 7:
             download_speed, upload_speed = run_speed_test()
             with open(speedtest_file, 'r') as f:
                 speed_data = json.load(f)
