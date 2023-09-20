@@ -1,6 +1,8 @@
 import os
 import time
 import datetime
+from math import floor
+
 import speedtest
 import requests
 import json
@@ -181,7 +183,7 @@ async def send_daily_report(speed_data, connectivity_data):
     message += f"Total Uptime: {total_uptime} hours\n"
     message += f"Total Downtime: {total_downtime} hours\n"
     message += f"Average Download Speed: {avg_download_speed:.2f} Mbps\n"
-    message += f"Average Upload Speed: {avg_upload_speed:.2f} Mbps"
+    message += f"Average Upload Speed: {avg_upload_speed:.2f} Mbps\n"
     message += f"Median Download Speed: {median_download:.2f} Mbps\n"
     message += f"Mode Download Speed: {mode_download:.2f} Mbps\n"
     message += f"Median Upload Speed: {median_upload:.2f} Mbps\n"
@@ -257,7 +259,7 @@ async def send_weekly_report(speed_data, connectivity_data):
     message += f"\nWeekly Report - {start_of_week.strftime('%Y-%m-%d')} to {end_of_week.strftime('%Y-%m-%d')}\n"
     message += f"Total Downtime (Days): {total_downtime_days}\n"
     message += f"Average Download Speed: {avg_download_speed:.2f} Mbps\n"
-    message += f"Average Upload Speed: {avg_upload_speed:.2f} Mbps"
+    message += f"Average Upload Speed: {avg_upload_speed:.2f} Mbps\n"
     message += f"Median Download Speed: {median_download:.2f} Mbps\n"
     message += f"Mode Download Speed: {mode_download:.2f} Mbps\n"
     message += f"Median Upload Speed: {median_upload:.2f} Mbps\n"
@@ -313,20 +315,22 @@ async def send_monthly_report(speed_data, connectivity_data):
     message += f"\nMonthly Report - {datetime.datetime.now().strftime('%B %Y')}\n"
     message += f"Total Downtime (Days): {total_downtime_days}\n"
     message += f"Average Download Speed: {avg_download_speed:.2f} Mbps\n"
-    message += f"Average Upload Speed: {avg_upload_speed:.2f} Mbps"
+    message += f"Average Upload Speed: {avg_upload_speed:.2f} Mbps\n"
     message += f"Median Download Speed: {median_download:.2f} Mbps\n"
     message += f"Mode Download Speed: {mode_download:.2f} Mbps\n"
     message += f"Median Upload Speed: {median_upload:.2f} Mbps\n"
     message += f"Mode Upload Speed: {mode_upload:.2f} Mbps\n"
 
     await send_telegram_message(message)
-    await send_telegram_photo("monthly_download_speed_graph")
+    await send_telegram_photo("monthly_download_speed_graph.png")
     await send_telegram_photo("monthly_upload_speed_graph.png")
     await send_telegram_message("*" * 30)
 
 
 # Main function
 async def main():
+    up = True
+    down_time = datetime.datetime.now()
     while True:
         month = datetime.datetime.now().strftime("%Y-%m")
         connectivity_file = os.path.join(DATA_DIRECTORY, f"connectivity_{month}.json")
@@ -342,9 +346,23 @@ async def main():
         # Check connectivity every minute
         with open(connectivity_file, "r") as f:
             connectivity_data = json.load(f)
+        if check_connectivity():
+            status = 1
+            if not up:
+                up = True
+                down = format_minutes_as_time(floor((datetime.datetime.now() - down_time).total_seconds()/60))
+                message = f"Internet is UP\n Downtime: {down}"
+                await send_telegram_message(message)
+        else:
+            status = 0
+            if up:
+                up = False
+                down_time = datetime.datetime.now()
+            time.sleep(60)
+            continue
         connectivity_data.append(
             {
-                "status": 1 if check_connectivity() else 0,
+                "status": status,
                 "time": datetime.datetime.now().strftime(TS),
             }
         )
@@ -367,30 +385,29 @@ async def main():
             json.dump(speed_data, f)
 
         # Check if it's 9 PM to send the daily report
-        # if datetime.datetime.now().hour == 21 and datetime.datetime.now().minute == 0:
-        # await send_daily_report(speed_data, connectivity_data)
+        if datetime.datetime.now().hour == 21 and datetime.datetime.now().minute == 0:
+            await send_daily_report(speed_data, connectivity_data)
 
         # Check if it's Sunday to send the weekly report
-        # if (
-        #     datetime.datetime.now().weekday() == 6
-        #     and datetime.datetime.now().hour == 0
-        #     and datetime.datetime.now().minute == 0
-        # ):
-        await send_weekly_report(speed_data, connectivity_data)
+        if (
+            datetime.datetime.now().weekday() == 6
+            and datetime.datetime.now().hour == 21
+            and datetime.datetime.now().minute == 0
+        ):
+            await send_weekly_report(speed_data, connectivity_data)
 
         # Check if it's the last day of the month to send the monthly report
-        # last_day_of_month = (
-        #     datetime.datetime.now().replace(day=1) + datetime.timedelta(days=32)
-        # ).replace(day=1) - datetime.timedelta(days=1)
-        # if (
-        #     datetime.datetime.now().date() == last_day_of_month.date()
-        #     and datetime.datetime.now().hour == 0
-        #     and datetime.datetime.now().minute == 0
-        # ):
-        await send_monthly_report(speed_data, connectivity_data)
+        last_day_of_month = (
+            datetime.datetime.now().replace(day=1) + datetime.timedelta(days=32)
+        ).replace(day=1) - datetime.timedelta(days=1)
+        if (
+            datetime.datetime.now().date() == last_day_of_month.date()
+            and datetime.datetime.now().hour == 21
+            and datetime.datetime.now().minute == 0
+        ):
+            await send_monthly_report(speed_data, connectivity_data)
 
         # Sleep for 1 minute
-        exit()
         time.sleep(60)
 
 
