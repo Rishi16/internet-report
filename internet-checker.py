@@ -5,11 +5,17 @@ import speedtest
 import requests
 import json
 from telegram import Bot
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 
 # Telegram bot API token
 TELEGRAM_BOT_TOKEN = 'YOUR_BOT_TOKEN'
 # Your chat ID, you can find this out by messaging the bot and checking the updates
 CHAT_ID = 'YOUR_CHAT_ID'
+# Cost of your internet plan per month (Rupees)
+INTERNET_COST = 1050
+# Your internet plan speed (Mbps)
+INTERNET_SPEED = 100
 
 # Function to check internet connectivity
 def check_connectivity():
@@ -35,37 +41,76 @@ def send_telegram_message(message, image_path=None):
         with open(image_path, 'rb') as img:
             bot.send_photo(chat_id=CHAT_ID, photo=img)
 
-# Function to send hourly speed report for today's data
-def send_hourly_speed_report(speed_data):
-    today = datetime.date.today().strftime('%Y-%m-%d')
-    today_speed_data = [entry for entry in speed_data if entry['time'].startswith(today)]
+# Function to create a minimalistic line graph
+def create_line_graph(x, y, title, xlabel, ylabel, filename):
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.plot(x, y, marker='o', linestyle='-')
+    ax.set_title(title, fontsize=16)
+    ax.set_xlabel(xlabel, fontsize=12)
+    ax.set_ylabel(ylabel, fontsize=12)
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%d-%b'))
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.savefig(filename)
+    plt.close()
 
-    if today_speed_data:
-        max_speed = max(today_speed_data, key=lambda x: x['download_speed'])
-        avg_download_speed = sum([x['download_speed'] for x in today_speed_data]) / len(today_speed_data)
-        avg_upload_speed = sum([x['upload_speed'] for x in today_speed_data]) / len(today_speed_data)
-        message = f"Hourly Speed Report - {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-        message += f"Max Download Speed: {max_speed['download_speed']:.2f} Mbps (at {max_speed['time']})\n"
-        message += f"Avg Download Speed: {avg_download_speed:.2f} Mbps\n"
-        message += f"Avg Upload Speed: {avg_upload_speed:.2f} Mbps"
-        send_telegram_message(message)
+# Function to send weekly report
+def send_weekly_report(speed_data, connectivity_data):
+    # Calculate total downtime in terms of days for the week
+    current_date = datetime.date.today()
+    start_of_week = current_date - datetime.timedelta(days=current_date.weekday())
+    end_of_week = start_of_week + datetime.timedelta(days=6)
+    week_connectivity_data = [entry['status'] for entry in connectivity_data if start_of_week <= datetime.datetime.strptime(entry['time'], '%Y-%m-%d %H:%M:%S').date() <= end_of_week]
 
-# Function to send daily connectivity report for today's data
-def send_daily_connectivity_report(connectivity_data):
-    today = datetime.date.today().strftime('%Y-%m-%d')
-    today_connectivity_data = [entry['status'] for entry in connectivity_data if entry['time'].startswith(today)]
+    total_downtime_days = (7 - sum(week_connectivity_data)) / 24
 
-    total_uptime = sum(today_connectivity_data)
-    total_downtime = 24 - total_uptime
-    message = f"Daily Connectivity Report - {datetime.datetime.now().strftime('%Y-%m-%d')}\n"
-    message += f"Total Uptime: {total_uptime} hours\n"
-    message += f"Total Downtime: {total_downtime} hours"
-    send_telegram_message(message)
+    # Calculate average weekly speed
+    week_speed_data = [entry for entry in speed_data if start_of_week <= datetime.datetime.strptime(entry['time'], '%Y-%m-%d %H:%M:%S').date() <= end_of_week]
+    avg_download_speed = sum([entry['download_speed'] for entry in week_speed_data]) / len(week_speed_data)
+    avg_upload_speed = sum([entry['upload_speed'] for entry in week_speed_data]) / len(week_speed_data)
 
-# Function to send combined daily report for today's data
-def send_daily_report(speed_data, connectivity_data):
-    send_hourly_speed_report(speed_data)
-    send_daily_connectivity_report(connectivity_data)
+    # Create and save a minimalistic line graph for the week's speed test results
+    timestamps = [datetime.datetime.strptime(entry['time'], '%Y-%m-%d %H:%M:%S') for entry in week_speed_data]
+    download_speeds = [entry['download_speed'] for entry in week_speed_data]
+    upload_speeds = [entry['upload_speed'] for entry in week_speed_data]
+    create_line_graph(timestamps, download_speeds, 'Weekly Speed Test Results', 'Date', 'Download Speed (Mbps)', 'weekly_speed_graph.png')
+    create_line_graph(timestamps, upload_speeds, 'Weekly Speed Test Results', 'Date', 'Upload Speed (Mbps)', 'weekly_upload_speed_graph.png')
+
+    # Send the weekly report with the minimalistic graphs
+    message = f"Weekly Report - {start_of_week.strftime('%Y-%m-%d')} to {end_of_week.strftime('%Y-%m-%d')}\n"
+    message += f"Total Downtime (Days): {total_downtime_days:.2f}\n"
+    message += f"Average Download Speed: {avg_download_speed:.2f} Mbps\n"
+    message += f"Average Upload Speed: {avg_upload_speed:.2f} Mbps"
+
+    send_telegram_message(message, image_path='weekly_speed_graph.png')
+    send_telegram_message(message, image_path='weekly_upload_speed_graph.png')
+
+# Function to generate and send the monthly report
+def send_monthly_report(speed_data, connectivity_data):
+    # Calculate total downtime in terms of days and hours for the month
+    total_downtime_hours = 24 * (datetime.datetime.now().day - 1) + (24 - sum(connectivity_data))
+    total_downtime_days = total_downtime_hours / 24
+
+    # Calculate average monthly speed
+    avg_download_speed = sum([entry['download_speed'] for entry in speed_data]) / len(speed_data)
+    avg_upload_speed = sum([entry['upload_speed'] for entry in speed_data]) / len(speed_data)
+
+    # Create and save a minimalistic line graph for the month's speed test results
+    timestamps = [datetime.datetime.strptime(entry['time'], '%Y-%m-%d %H:%M:%S') for entry in speed_data]
+    download_speeds = [entry['download_speed'] for entry in speed_data]
+    upload_speeds = [entry['upload_speed'] for entry in speed_data]
+    create_line_graph(timestamps, download_speeds, 'Monthly Speed Test Results', 'Date', 'Download Speed (Mbps)', 'monthly_speed_graph.png')
+    create_line_graph(timestamps, upload_speeds, 'Monthly Speed Test Results', 'Date', 'Upload Speed (Mbps)', 'monthly_upload_speed_graph.png')
+
+    # Send the monthly report with the minimalistic graphs
+    message = f"Monthly Report - {datetime.datetime.now().strftime('%B %Y')}\n"
+    message += f"Total Downtime (Days): {total_downtime_days:.2f}\n"
+    message += f"Average Download Speed: {avg_download_speed:.2f} Mbps\n"
+    message += f"Average Upload Speed: {avg_upload_speed:.2f} Mbps"
+
+    send_telegram_message(message, image_path='monthly_speed_graph.png')
+    send_telegram_message(message, image_path='monthly_upload_speed_graph.png')
+
 
 # Main function
 if __name__ == "__main__":
@@ -115,7 +160,7 @@ if __name__ == "__main__":
         # Check if it's the last day of the month to send the monthly report
         last_day_of_month = (datetime.datetime.now().replace(day=1) + datetime.timedelta(days=32)).replace(day=1) - datetime.timedelta(days=1)
         if datetime.datetime.now().date() == last_day_of_month.date() and datetime.datetime.now().hour == 0 and datetime.datetime.now().minute == 0:
-            send_monthly_report()
+            send_monthly_report(speed_data, connectivity_data)
 
         # Sleep for 1 minute
         time.sleep(60)
