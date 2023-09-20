@@ -16,6 +16,19 @@ CHAT_ID = 'YOUR_CHAT_ID'
 INTERNET_COST = 1050
 # Your internet plan speed (Mbps)
 INTERNET_SPEED = 100
+# Define the report and data directory paths
+REPORT_DIRECTORY = 'reports'
+DATA_DIRECTORY = 'data'
+
+# Function to ensure the directory exists
+def ensure_directory_exists(directory):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+# Ensure the report and data directories exist
+ensure_directory_exists(REPORT_DIRECTORY)
+ensure_directory_exists(DATA_DIRECTORY)
+
 
 # Function to check internet connectivity
 def check_connectivity():
@@ -33,16 +46,10 @@ def run_speed_test():
     upload_speed = st.upload() / 1024 / 1024  # Convert to Mbps
     return download_speed, upload_speed
 
-# Function to send a message with an optional image to Telegram
-def send_telegram_message(message, image_path=None):
-    bot = Bot(token=TELEGRAM_BOT_TOKEN)
-    bot.send_message(chat_id=CHAT_ID, text=message)
-    if image_path:
-        with open(image_path, 'rb') as img:
-            bot.send_photo(chat_id=CHAT_ID, photo=img)
-
-# Function to create a minimalistic line graph
+# Function to create a minimalistic line graph in the report directory
 def create_line_graph(x, y, title, xlabel, ylabel, filename):
+    filepath = os.path.join(REPORT_DIRECTORY, filename)
+
     fig, ax = plt.subplots(figsize=(8, 4))
     ax.plot(x, y, marker='o', linestyle='-')
     ax.set_title(title, fontsize=16)
@@ -51,8 +58,17 @@ def create_line_graph(x, y, title, xlabel, ylabel, filename):
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%d-%b'))
     plt.xticks(rotation=45)
     plt.tight_layout()
-    plt.savefig(filename)
+    plt.savefig(filepath)
     plt.close()
+    return filepath
+
+# Function to send a message with an optional image to Telegram
+def send_telegram_message(message, image_path=None):
+    bot = Bot(token=TELEGRAM_BOT_TOKEN)
+    bot.send_message(chat_id=CHAT_ID, text=message)
+    if image_path:
+        with open(image_path, 'rb') as img:
+            bot.send_photo(chat_id=CHAT_ID, photo=img)
 
 # Function to send daily report
 def send_daily_report(speed_data, connectivity_data):
@@ -146,7 +162,8 @@ def send_monthly_report(speed_data, connectivity_data):
 # Main function
 if __name__ == "__main__":
     current_month = datetime.datetime.now().strftime('%Y-%m')
-    connectivity_file = f'connectivity_{current_month}.json'
+    data_directory = 'data'
+    connectivity_file = os.path.join(data_directory, f'connectivity_{current_month}.json')
     speedtest_file = f'speedtest_{current_month}.json'
 
     while True:
@@ -157,6 +174,9 @@ if __name__ == "__main__":
             speedtest_file = f'speedtest_{new_month}.json'
             current_month = new_month
 
+        if not os.path.exists(connectivity_file):
+            with open(connectivity_file, 'w') as f:
+                json.dump([], f)
         # Check connectivity every minute
         with open(connectivity_file, 'r') as f:
             connectivity_data = json.load(f)
