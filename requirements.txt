@@ -3,3 +3,4 @@ matplotlib
 python-telegram-bot
 requests
 urllib3==1.25.11
+seaborn
