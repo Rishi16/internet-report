@@ -54,6 +54,37 @@ def create_line_graph(x, y, title, xlabel, ylabel, filename):
     plt.savefig(filename)
     plt.close()
 
+# Function to send daily report
+def send_daily_report(speed_data, connectivity_data):
+    # Calculate uptime and downtime for the day
+    today = datetime.date.today().strftime('%Y-%m-%d')
+    today_connectivity_data = [entry['status'] for entry in connectivity_data if entry['time'].startswith(today)]
+
+    total_uptime = sum(today_connectivity_data)
+    total_downtime = 24 - total_uptime
+
+    # Calculate average daily speed
+    today_speed_data = [entry for entry in speed_data if entry['time'].startswith(today)]
+    avg_download_speed = sum([entry['download_speed'] for entry in today_speed_data]) / len(today_speed_data)
+    avg_upload_speed = sum([entry['upload_speed'] for entry in today_speed_data]) / len(today_speed_data)
+
+    # Create and save a minimalistic line graph for hourly speed on the day
+    timestamps = [datetime.datetime.strptime(entry['time'], '%Y-%m-%d %H:%M:%S') for entry in today_speed_data]
+    download_speeds = [entry['download_speed'] for entry in today_speed_data]
+    upload_speeds = [entry['upload_speed'] for entry in today_speed_data]
+    create_line_graph(timestamps, download_speeds, 'Daily Speed Test Results', 'Hour', 'Download Speed (Mbps)', 'daily_speed_graph.png')
+    create_line_graph(timestamps, upload_speeds, 'Daily Speed Test Results', 'Hour', 'Upload Speed (Mbps)', 'daily_upload_speed_graph.png')
+
+    # Send the daily report with the minimalistic graphs
+    message = f"Daily Report - {today}\n"
+    message += f"Total Uptime: {total_uptime} hours\n"
+    message += f"Total Downtime: {total_downtime} hours\n"
+    message += f"Average Download Speed: {avg_download_speed:.2f} Mbps\n"
+    message += f"Average Upload Speed: {avg_upload_speed:.2f} Mbps"
+
+    send_telegram_message(message, image_path='daily_speed_graph.png')
+    send_telegram_message(message, image_path='daily_upload_speed_graph.png')
+
 # Function to send weekly report
 def send_weekly_report(speed_data, connectivity_data):
     # Calculate total downtime in terms of days for the week
