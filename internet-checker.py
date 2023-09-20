@@ -30,9 +30,29 @@ def ensure_directory_exists(directory):
         os.makedirs(directory)
 
 
-# Ensure the report and data directories exist
-ensure_directory_exists(REPORT_DIRECTORY)
-ensure_directory_exists(DATA_DIRECTORY)
+def setup():
+    month = datetime.datetime.now().strftime("%Y-%m")
+    connectivity_file = os.path.join(DATA_DIRECTORY, f"connectivity_{month}.json")
+    speedtest_file = os.path.join(DATA_DIRECTORY, f"speedtest_{month}.json")
+    # Ensure the report and data directories exist
+    ensure_directory_exists(REPORT_DIRECTORY)
+    ensure_directory_exists(DATA_DIRECTORY)
+
+    if not os.path.exists(connectivity_file):
+        with open(connectivity_file, "w") as f:
+            json.dump([], f)
+    if not os.path.exists(speedtest_file):
+        with open(speedtest_file, "w") as f:
+            json.dump([], f)
+
+    # Check connectivity every minute
+    with open(connectivity_file, "r") as f:
+        connectivity_data = json.load(f)
+    # Check connectivity every minute
+    with open(speedtest_file, "r") as f:
+        speed_data = json.load(f)
+
+    return connectivity_data, speed_data
 
 
 def calculate_stats(data):
@@ -79,8 +99,8 @@ def check_connectivity():
 def run_speed_test():
     st = speedtest.Speedtest()
     st.get_best_server()
-    download_speed = st.download() / 1024 / 1024  # Convert to Mbps
-    upload_speed = st.upload() / 1024 / 1024  # Convert to Mbps
+    download_speed = round(st.download() / 1024 / 1024, 2)  # Convert to Mbps
+    upload_speed = round(st.upload() / 1024 / 1024, 2)  # Convert to Mbps
     return download_speed, upload_speed
 
 
@@ -329,37 +349,30 @@ async def send_monthly_report(speed_data, connectivity_data):
 
 # Main function
 async def main():
-    up = True
+    internet_is_up = True
+    hourly_pending = daily_pending = weekly_pending = monthly_pending = False
     down_time = datetime.datetime.now()
+
+    connectivity_data, speed_data = setup()
     while True:
         month = datetime.datetime.now().strftime("%Y-%m")
         connectivity_file = os.path.join(DATA_DIRECTORY, f"connectivity_{month}.json")
         speedtest_file = os.path.join(DATA_DIRECTORY, f"speedtest_{month}.json")
 
-        if not os.path.exists(connectivity_file):
-            with open(connectivity_file, "w") as f:
-                json.dump([], f)
-        if not os.path.exists(speedtest_file):
-            with open(speedtest_file, "w") as f:
-                json.dump([], f)
-
-        # Check connectivity every minute
-        with open(connectivity_file, "r") as f:
-            connectivity_data = json.load(f)
         if check_connectivity():
             status = 1
-            if not up:
-                up = True
-                down = format_minutes_as_time(floor((datetime.datetime.now() - down_time).total_seconds()/60))
-                message = f"Internet is UP\n Downtime: {down}"
+            if not internet_is_up:
+                internet_is_up = True
+                down = format_minutes_as_time(
+                    floor((datetime.datetime.now() - down_time).total_seconds() / 60)
+                )
+                message = f"Internet is UP!\nDowntime: {down}"
                 await send_telegram_message(message)
         else:
             status = 0
-            if up:
-                up = False
+            if internet_is_up:
+                internet_is_up = False
                 down_time = datetime.datetime.now()
-            time.sleep(60)
-            continue
         connectivity_data.append(
             {
                 "status": status,
@@ -370,31 +383,45 @@ async def main():
             json.dump(connectivity_data, f)
 
         # Check if it's the top of the hour (hourly speed check)
-        # if datetime.datetime.now().minute == 58:
-        download_speed, upload_speed = run_speed_test()
-        with open(speedtest_file, "r") as f:
-            speed_data = json.load(f)
-        speed_data.append(
-            {
-                "download_speed": download_speed,
-                "upload_speed": upload_speed,
-                "time": datetime.datetime.now().strftime(TS),
-            }
-        )
-        with open(speedtest_file, "w") as f:
-            json.dump(speed_data, f)
+        if datetime.datetime.now().minute == 0 or hourly_pending:
+            if internet_is_up:
+                hourly_pending = False
+                download_speed, upload_speed = run_speed_test()
+                with open(speedtest_file, "r") as f:
+                    speed_data = json.load(f)
+                speed_data.append(
+                    {
+                        "download_speed": download_speed,
+                        "upload_speed": upload_speed,
+                        "time": datetime.datetime.now().strftime(TS),
+                    }
+                )
+                with open(speedtest_file, "w") as f:
+                    json.dump(speed_data, f)
+            else:
+                hourly_pending = True
 
         # Check if it's 9 PM to send the daily report
-        if datetime.datetime.now().hour == 21 and datetime.datetime.now().minute == 0:
-            await send_daily_report(speed_data, connectivity_data)
+        if (
+            datetime.datetime.now().hour == 21 and datetime.datetime.now().minute == 0
+        ) or daily_pending:
+            if internet_is_up:
+                daily_pending = False
+                await send_daily_report(speed_data, connectivity_data)
+            else:
+                daily_pending = True
 
         # Check if it's Sunday to send the weekly report
         if (
             datetime.datetime.now().weekday() == 6
             and datetime.datetime.now().hour == 21
             and datetime.datetime.now().minute == 0
-        ):
-            await send_weekly_report(speed_data, connectivity_data)
+        ) or weekly_pending:
+            if internet_is_up:
+                weekly_pending = False
+                await send_weekly_report(speed_data, connectivity_data)
+            else:
+                weekly_pending = True
 
         # Check if it's the last day of the month to send the monthly report
         last_day_of_month = (
@@ -404,9 +431,12 @@ async def main():
             datetime.datetime.now().date() == last_day_of_month.date()
             and datetime.datetime.now().hour == 21
             and datetime.datetime.now().minute == 0
-        ):
-            await send_monthly_report(speed_data, connectivity_data)
-
+        ) or monthly_pending:
+            if internet_is_up:
+                monthly_pending = False
+                await send_monthly_report(speed_data, connectivity_data)
+            else:
+                monthly_pending = True
         # Sleep for 1 minute
         time.sleep(60)
 
