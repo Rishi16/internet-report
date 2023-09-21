@@ -18,9 +18,10 @@ from statistics import median, mode, StatisticsError
 TS = "%Y-%m-%d %H:%M:%S"
 
 # Define the report and data directory paths
-REPORT_DIRECTORY = "reports"
-DATA_DIRECTORY = "data"
-
+ABS_PATH = os.path.abspath(".")
+REPORT_DIRECTORY = os.path.join(ABS_PATH, "reports")
+DATA_DIRECTORY = os.path.join(ABS_PATH, "data")
+print(REPORT_DIRECTORY, DATA_DIRECTORY)
 bot = Bot(token=TELEGRAM_BOT_TOKEN)
 
 
