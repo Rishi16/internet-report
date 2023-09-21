@@ -9,7 +9,7 @@ import json
 from telegram import Bot
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-from _secrets import TELEGRAM_BOT_TOKEN, CHAT_ID, INTERNET_COST, INTERNET_SPEED
+from _secrets import TELEGRAM_BOT_TOKEN, CHAT_ID
 import asyncio
 import seaborn as sns
 from statistics import median, mode, StatisticsError
