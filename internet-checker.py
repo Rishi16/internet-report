@@ -9,7 +9,7 @@ import json
 from telegram import Bot
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-from _secrets import TELEGRAM_BOT_TOKEN, CHAT_ID
+from _secrets import TELEGRAM_BOT_TOKEN, CHAT_ID, ABS_PATH
 import asyncio
 import seaborn as sns
 from statistics import median, mode, StatisticsError
@@ -18,7 +18,6 @@ from statistics import median, mode, StatisticsError
 TS = "%Y-%m-%d %H:%M:%S"
 
 # Define the report and data directory paths
-ABS_PATH = os.path.abspath(".")
 REPORT_DIRECTORY = os.path.join(ABS_PATH, "reports")
 DATA_DIRECTORY = os.path.join(ABS_PATH, "data")
 print(REPORT_DIRECTORY, DATA_DIRECTORY)
