@@ -146,39 +146,39 @@ async def send_telegram_message(message):
 # Function to send daily report
 async def send_daily_report(speed_data, connectivity_data):
     # Calculate uptime and downtime for the day
-    today = datetime.date.today().strftime("%Y-%m-%d")
-    today_connectivity_data = [
+    yesterday = (datetime.date.today() - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+    yesterday_connectivity_data = [
         entry["status"]
         for entry in connectivity_data
-        if entry["time"].startswith(today)
+        if entry["time"].startswith(yesterday)
     ]
 
-    total_downtime = format_minutes_as_time(today_connectivity_data.count(0))
-    total_uptime = format_minutes_as_time(today_connectivity_data.count(1))
+    total_downtime = format_minutes_as_time(yesterday_connectivity_data.count(0))
+    total_uptime = format_minutes_as_time(yesterday_connectivity_data.count(1))
 
     # Calculate average daily speed
-    today_speed_data = [
-        entry for entry in speed_data if entry["time"].startswith(today)
+    yesterday_speed_data = [
+        entry for entry in speed_data if entry["time"].startswith(yesterday)
     ]
     avg_download_speed = sum(
-        [entry["download_speed"] for entry in today_speed_data]
-    ) / len(today_speed_data)
-    avg_upload_speed = sum([entry["upload_speed"] for entry in today_speed_data]) / len(
-        today_speed_data
+        [entry["download_speed"] for entry in yesterday_speed_data]
+    ) / len(yesterday_speed_data)
+    avg_upload_speed = sum([entry["upload_speed"] for entry in yesterday_speed_data]) / len(
+        yesterday_speed_data
     )
 
     # Calculate median and mode of download and upload speeds
-    download_speeds = [entry["download_speed"] for entry in today_speed_data]
-    upload_speeds = [entry["upload_speed"] for entry in today_speed_data]
+    download_speeds = [entry["download_speed"] for entry in yesterday_speed_data]
+    upload_speeds = [entry["upload_speed"] for entry in yesterday_speed_data]
     median_download, mode_download = calculate_stats(download_speeds)
     median_upload, mode_upload = calculate_stats(upload_speeds)
 
     # Create and save a minimalistic line graph for hourly speed on the day
     timestamps = [
-        datetime.datetime.strptime(entry["time"], TS) for entry in today_speed_data
+        datetime.datetime.strptime(entry["time"], TS) for entry in yesterday_speed_data
     ]
-    download_speeds = [entry["download_speed"] for entry in today_speed_data]
-    upload_speeds = [entry["upload_speed"] for entry in today_speed_data]
+    download_speeds = [entry["download_speed"] for entry in yesterday_speed_data]
+    upload_speeds = [entry["upload_speed"] for entry in yesterday_speed_data]
     create_line_graph(
         timestamps,
         download_speeds,
@@ -403,7 +403,7 @@ async def main():
 
         # Check if it's 9 PM to send the daily report
         if (
-            datetime.datetime.now().hour == 21 and datetime.datetime.now().minute == 0
+            datetime.datetime.now().hour == 9 and datetime.datetime.now().minute == 0
         ) or daily_pending:
             if internet_is_up:
                 daily_pending = False
