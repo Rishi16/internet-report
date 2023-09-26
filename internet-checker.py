@@ -160,6 +160,8 @@ async def send_daily_report(speed_data, connectivity_data):
     yesterday_speed_data = [
         entry for entry in speed_data if entry["time"].startswith(yesterday)
     ]
+    if not yesterday_speed_data:
+        return 0
     avg_download_speed = sum(
         [entry["download_speed"] for entry in yesterday_speed_data]
     ) / len(yesterday_speed_data)
@@ -238,6 +240,8 @@ async def send_weekly_report(speed_data, connectivity_data):
         <= datetime.datetime.strptime(entry["time"], TS).date()
         <= end_of_week
     ]
+    if not week_speed_data:
+        return 0
     avg_download_speed = sum(
         [entry["download_speed"] for entry in week_speed_data]
     ) / len(week_speed_data)
@@ -400,6 +404,7 @@ async def main():
                     json.dump(speed_data, f)
             else:
                 hourly_pending = True
+        await send_daily_report(speed_data, connectivity_data)
 
         # Check if it's 9 PM to send the daily report
         if (
