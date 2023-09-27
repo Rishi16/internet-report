@@ -202,7 +202,7 @@ async def send_daily_report(speed_data, connectivity_data):
     )
 
     # Send the daily report with the minimalistic graphs
-    message = f"Daily Report - {today}\n"
+    message = f"Daily Report - {yesterday}\n"
     message += f"Total Uptime: {total_uptime} hours\n"
     message += f"Total Downtime: {total_downtime} hours\n"
     message += f"Average Download Speed: {avg_download_speed:.2f} Mbps\n"
