@@ -1,3 +1,4 @@
+import argparse
 import os
 import time
 import datetime
@@ -351,6 +352,29 @@ async def send_monthly_report(speed_data, connectivity_data):
     await send_telegram_message("*" * 30)
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Internet Checker Script")
+    parser.add_argument(
+        "-d",
+        "--daily",
+        action="store_true",
+        help="Send the daily report",
+    )
+    parser.add_argument(
+        "-w",
+        "--weekly",
+        action="store_true",
+        help="Send the weekly report",
+    )
+    parser.add_argument(
+        "-m",
+        "--monthly",
+        action="store_true",
+        help="Send the monthly report",
+    )
+    return parser.parse_args()
+
+
 # Main function
 async def main():
     internet_is_up = True
@@ -358,6 +382,18 @@ async def main():
     down_time = datetime.datetime.now()
 
     connectivity_data, speed_data = setup()
+
+    args = parse_args()
+    if args.daily:
+        await send_daily_report(speed_data, connectivity_data)
+        return
+    if args.weekly:
+        await send_weekly_report(speed_data, connectivity_data)
+        return
+    if args.monthly:
+        await send_monthly_report(speed_data, connectivity_data)
+        return
+
     while True:
         month = datetime.datetime.now().strftime("%Y-%m")
         connectivity_file = os.path.join(DATA_DIRECTORY, f"connectivity_{month}.json")
