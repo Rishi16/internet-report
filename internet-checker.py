@@ -91,7 +91,7 @@ def check_connectivity():
     try:
         requests.get("https://www.google.com", timeout=5)
         return True
-    except requests.ConnectionError:
+    except (requests.ConnectionError, requests.exceptions.ReadTimeout):
         return False
 
 
