@@ -33,14 +33,15 @@ Before you begin, ensure you have met the following requirements:
 2. Install the required libraries:
 
    ```shell
-   pip install speedtest-cli matplotlib seaborn requests python-telegram-bot
+   pip install -r requirements.txt
    ```
 
-3. Create a `secrets.py` file and add your Telegram Bot Token and Chat ID:
+3. Create a `_secrets.py` file and add your Telegram Bot Token and Chat ID:
 
    ```python
    TELEGRAM_BOT_TOKEN = "your_bot_token"
    CHAT_ID = "your_chat_id"
+   ABS_PATH = "path_to_project_root"
    ```
 
 4. Run the script:
@@ -56,6 +57,20 @@ Before you begin, ensure you have met the following requirements:
 - Weekly reports are sent on Sundays (configurable) and provide a summary of the week's data.
 - Monthly reports are sent on the last day of the month (configurable) and include monthly statistics.
 
+### Manual Report Generation
+
+You can manually generate reports using command-line arguments. Use the following options:
+
+- `-d` or `--daily`: Generate and send a daily report.
+- `-w` or `--weekly`: Generate and send a weekly report.
+- `-m` or `--monthly`: Generate and send a monthly report.
+
+Example:
+
+```shell
+python internet_checker.py -d  # Generate and send a daily report
+```
+
 ## Customization
 
 You can customize the script by modifying the following settings in `internet_checker.py`:
@@ -64,7 +79,6 @@ You can customize the script by modifying the following settings in `internet_ch
 - Report file names and formats
 - Report content (e.g., add or remove specific statistics)
 - Graph styling (e.g., colors, labels)
-
 
 ## Acknowledgments
 
@@ -75,3 +89,4 @@ You can customize the script by modifying the following settings in `internet_ch
 ## Contributing
 
 Contributions are welcome! Feel free to open an issue or pull request to improve this project.
+
