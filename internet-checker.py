@@ -440,8 +440,6 @@ async def main():
                     json.dump(speed_data, f)
             else:
                 hourly_pending = True
-        await send_daily_report(speed_data, connectivity_data)
-
         # Check if it's 9 PM to send the daily report
         if (
             datetime.datetime.now().hour == 9 and datetime.datetime.now().minute == 0
