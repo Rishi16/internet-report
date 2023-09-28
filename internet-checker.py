@@ -92,7 +92,7 @@ def check_connectivity():
     try:
         requests.get("https://www.google.com", timeout=5)
         return True
-    except (requests.ConnectionError, requests.exceptions.ReadTimeout):
+    except Exception:
         return False
 
 
@@ -426,18 +426,21 @@ async def main():
         if datetime.datetime.now().minute == 0 or hourly_pending:
             if internet_is_up:
                 hourly_pending = False
-                download_speed, upload_speed = run_speed_test()
-                with open(speedtest_file, "r") as f:
-                    speed_data = json.load(f)
-                speed_data.append(
-                    {
-                        "download_speed": download_speed,
-                        "upload_speed": upload_speed,
-                        "time": datetime.datetime.now().strftime(TS),
-                    }
-                )
-                with open(speedtest_file, "w") as f:
-                    json.dump(speed_data, f)
+                try:
+                    download_speed, upload_speed = run_speed_test()
+                    with open(speedtest_file, "r") as f:
+                        speed_data = json.load(f)
+                    speed_data.append(
+                        {
+                            "download_speed": download_speed,
+                            "upload_speed": upload_speed,
+                            "time": datetime.datetime.now().strftime(TS),
+                        }
+                    )
+                    with open(speedtest_file, "w") as f:
+                        json.dump(speed_data, f)
+                except Exception:
+                    pass
             else:
                 hourly_pending = True
         # Check if it's 9 PM to send the daily report
